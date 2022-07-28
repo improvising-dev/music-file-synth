@@ -1,0 +1,32 @@
+{
+  "name": "@improvising/music-file-synth",
+  "version": "0.1.0",
+  "type": "module",
+  "module": "./dist/esm/index.js",
+  "main": "./dist/commonjs/index.js",
+  "types": "./dist/types/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/esm/index.js",
+      "require": "./dist/commonjs/index.js"
+    }
+  },
+  "license": "MIT",
+  "author": "Improvising",
+  "description": "Synthesizer for MusicFile format",
+  "devDependencies": {
+    "@improvising/music-file": "^0.1.1",
+    "@types/node": "^18.0.6",
+    "rimraf": "^3.0.2",
+    "typescript": "^4.7.4"
+  },
+  "dependencies": {},
+  "peerDependencies": {
+    "@improvising/music-file": "^0.1.0"
+  },
+  "scripts": {
+    "build:commonjs": "tsc --project tsconfig.commonjs.json",
+    "build:esm": "tsc --project tsconfig.esm.json && node fix-esm-import-paths",
+    "build": "rimraf dist && yarn build:commonjs && yarn build:esm"
+  }
+}
