@@ -39,7 +39,11 @@ export const PITCH_INDEX_MAP = PITCHES.reduce((prev, curr, index) => {
   return prev
 }, {} as Record<string, number>)
 
-export const noteToPitch = (note: MFNote, octave: MFOctave, key: MFKey) => {
+export const getPitchesBetween = (from: Pitch, to: Pitch) => {
+  return PITCHES.slice(PITCH_INDEX_MAP[from], PITCH_INDEX_MAP[to])
+}
+
+export const getNotePitch = (note: MFNote, octave: MFOctave, key: MFKey) => {
   const octaveOffset = (octave - 1) * 12
 
   const keyOffset = getKeyOffset(key)
@@ -48,12 +52,12 @@ export const noteToPitch = (note: MFNote, octave: MFOctave, key: MFKey) => {
   return PITCHES[octaveOffset + keyOffset + noteOffset]
 }
 
-export const chordToPitches = (
+export const getChordPitches = (
   chord: MFChord,
   octave: MFOctave,
   key: MFKey,
 ) => {
   return getChordOctaveNotes(chord, octave).map(note => {
-    return noteToPitch(...splitOctaveNote(note), key)
+    return getNotePitch(...splitOctaveNote(note), key)
   })
 }

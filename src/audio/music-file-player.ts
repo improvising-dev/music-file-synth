@@ -7,9 +7,15 @@ import {
   MFNote,
   MFOctave,
 } from '@improvising/music-file'
+import { getChordPitches, getNotePitch } from '../common/pitch'
 import { Synthesizer } from './synthesizer'
-import { PlaybackIntervalRef, TickEventsMap } from './types/playback'
-import { chordToPitches, noteToPitch } from './utils/pitch'
+
+type TickIntervalDisposer = () => void
+type TickEvent = () => void
+
+interface TickEventsMap {
+  [tick: number]: TickEvent[]
+}
 
 export class MusicFilePlayer {
   constructor(private synthesizer: Synthesizer) {}
@@ -28,7 +34,7 @@ export class MusicFilePlayer {
       durationMs?: number
     } = {},
   ) {
-    const release = this.synthesizer.soundOn(noteToPitch(note, octave, key), {
+    const release = this.synthesizer.soundOn(getNotePitch(note, octave, key), {
       instrument,
       volume,
     })
@@ -50,7 +56,7 @@ export class MusicFilePlayer {
       durationMs?: number
     } = {},
   ) {
-    const releases = chordToPitches(chord, octave, key).map(pitch => {
+    const releases = getChordPitches(chord, octave, key).map(pitch => {
       return this.synthesizer.soundOn(pitch, { instrument, volume })
     })
 
@@ -68,7 +74,7 @@ export class MusicFilePlayer {
       onProgress?: (currentTick: number) => void
       onFinish?: (currentTick: number) => void
     } = {},
-  ): PlaybackIntervalRef {
+  ): TickIntervalDisposer {
     const { key } = musicFile
     const { tickMs, numTicks } = computeMusicFileTiming(musicFile)
 
@@ -81,7 +87,7 @@ export class MusicFilePlayer {
         switch (item.type) {
           case 'note':
             {
-              const pitch = noteToPitch(item.note, item.octave, key)
+              const pitch = getNotePitch(item.note, item.octave, key)
               const end = computeTrackItemEndTick(item)
 
               tickEventsMap[item.begin] ??= []
@@ -98,7 +104,7 @@ export class MusicFilePlayer {
             break
           case 'chord':
             {
-              const pitches = chordToPitches(item.chord, item.octave, key)
+              const pitches = getChordPitches(item.chord, item.octave, key)
               const end = computeTrackItemEndTick(item)
 
               tickEventsMap[item.begin] ??= []
@@ -141,20 +147,14 @@ export class MusicFilePlayer {
       currentTick++
     }
 
-    schedule()
-
     const interval = window.setInterval(schedule, tickMs)
 
-    return {
-      dispose: () => {
-        window.clearInterval(interval)
+    schedule()
 
-        this.synthesizer.allSoundOff()
-      },
-      getCurrentTick: () => currentTick,
-      setCurrentTick: tick => {
-        currentTick = tick
-      },
+    return () => {
+      this.synthesizer.allSoundOff()
+
+      return window.clearInterval(interval)
     }
   }
 }
