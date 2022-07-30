@@ -2,10 +2,10 @@
 # yarn lockfile v1
 
 
-"@improvising/music-file@^0.1.1":
-  version "0.1.1"
-  resolved "https://registry.npmjs.org/@improvising/music-file/-/music-file-0.1.1.tgz#51e3be8e2b0d69cc5b89da6570e1e86287dd1942"
-  integrity sha512-21PkX2UQnYf5j5gQ6neyespSlK1h5LKTVezcVsSPtcFcG1FaGCkWoB0IbcGRd5ru4zzhK1quYYp+JC/tTIQ49w==
+"@improvising/music-file@^0.1.2":
+  version "0.1.2"
+  resolved "https://registry.npmjs.org/@improvising/music-file/-/music-file-0.1.2.tgz#35a2000841f7ee11f9e5165a18cebdec9e351d24"
+  integrity sha512-dKu4sDnvJIbgPdmPbxY6fnG7pEuDhQqWPbGYy7sBZ3gZDfuvgy4IUFP13F63e4EOruMY/fZd2lAHIYdnIFAvgA==
 
 "@types/node@^18.0.6":
   version "18.0.6"

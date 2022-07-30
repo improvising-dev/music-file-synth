@@ -10,11 +10,23 @@ import {
 import { getChordPitches, getNotePitch } from '../common/pitch'
 import { Synthesizer } from './synthesizer'
 
-type TickIntervalDisposer = () => void
-type TickEvent = () => void
-
-interface TickEventsMap {
+export type TickEvent = () => void
+export interface TickEventsMap {
   [tick: number]: TickEvent[]
+}
+
+export interface MusicFilePlaybackState {
+  key: MFKey
+  numTicks: number
+  tickMs: number
+  tickEventsMap: TickEventsMap
+  currentTick: number
+}
+
+export interface MusicFilePlaybackController {
+  dispose: () => void
+  getCurrentState: () => MusicFilePlaybackState
+  updateState: (musicFile: MFMusicFile) => void
 }
 
 export class MusicFilePlayer {
@@ -64,7 +76,7 @@ export class MusicFilePlayer {
   }
 
   playMusicFile(
-    musicFile: MFMusicFile,
+    initialMusicFile: MFMusicFile,
     {
       startTick = 0,
       onProgress,
@@ -74,61 +86,74 @@ export class MusicFilePlayer {
       onProgress?: (currentTick: number) => void
       onFinish?: (currentTick: number) => void
     } = {},
-  ): TickIntervalDisposer {
-    const { key } = musicFile
-    const { tickMs, numTicks } = computeMusicFileTiming(musicFile)
+  ): MusicFilePlaybackController {
+    const state: MusicFilePlaybackState = {
+      key: 'C',
+      numTicks: 0,
+      tickMs: 0,
+      tickEventsMap: {},
+      currentTick: startTick,
+    }
 
-    const tickEventsMap: TickEventsMap = {}
+    const updateState = (musicFile: MFMusicFile) => {
+      const { key } = musicFile
+      const { tickMs, numTicks } = computeMusicFileTiming(musicFile)
 
-    for (const track of musicFile.tracks) {
-      const { instrument, volume } = track
+      const tickEventsMap: TickEventsMap = {}
 
-      for (const item of track.items) {
-        switch (item.type) {
-          case 'note':
-            {
-              const pitch = getNotePitch(item.note, item.octave, key)
-              const end = computeTrackItemEndTick(item)
+      for (const track of musicFile.tracks) {
+        const { instrument, volume } = track
 
-              tickEventsMap[item.begin] ??= []
-              tickEventsMap[item.begin].push(() => {
-                const release = this.synthesizer.soundOn(pitch, {
-                  instrument,
-                  volume,
-                })
+        for (const item of track.items) {
+          switch (item.type) {
+            case 'note':
+              {
+                const pitch = getNotePitch(item.note, item.octave, key)
+                const end = computeTrackItemEndTick(item)
 
-                tickEventsMap[end] ??= []
-                tickEventsMap[end].push(release)
-              })
-            }
-            break
-          case 'chord':
-            {
-              const pitches = getChordPitches(item.chord, item.octave, key)
-              const end = computeTrackItemEndTick(item)
-
-              tickEventsMap[item.begin] ??= []
-              tickEventsMap[item.begin].push(() => {
-                const releases = pitches.map(pitch => {
-                  return this.synthesizer.soundOn(pitch, {
+                tickEventsMap[item.begin] ??= []
+                tickEventsMap[item.begin].push(() => {
+                  const release = this.synthesizer.soundOn(pitch, {
                     instrument,
                     volume,
                   })
-                })
 
-                tickEventsMap[end] ??= []
-                tickEventsMap[end].push(...releases)
-              })
-            }
-            break
+                  tickEventsMap[end] ??= []
+                  tickEventsMap[end].push(release)
+                })
+              }
+              break
+            case 'chord':
+              {
+                const pitches = getChordPitches(item.chord, item.octave, key)
+                const end = computeTrackItemEndTick(item)
+
+                tickEventsMap[item.begin] ??= []
+                tickEventsMap[item.begin].push(() => {
+                  const releases = pitches.map(pitch => {
+                    return this.synthesizer.soundOn(pitch, {
+                      instrument,
+                      volume,
+                    })
+                  })
+
+                  tickEventsMap[end] ??= []
+                  tickEventsMap[end].push(...releases)
+                })
+              }
+              break
+          }
         }
       }
+
+      state.key = key
+      state.numTicks = numTicks
+      state.tickMs = tickMs
+      state.tickEventsMap = tickEventsMap
     }
 
-    let currentTick = startTick
-
     const schedule = () => {
-      const tickEvents = tickEventsMap[currentTick]
+      const tickEvents = state.tickEventsMap[state.currentTick]
 
       if (tickEvents) {
         for (const tickEvent of tickEvents) {
@@ -136,25 +161,34 @@ export class MusicFilePlayer {
         }
       }
 
-      onProgress?.(currentTick)
+      onProgress?.(state.currentTick)
 
-      if (currentTick >= numTicks) {
-        onFinish?.(currentTick)
+      if (state.currentTick >= state.numTicks) {
+        onFinish?.(state.currentTick)
 
         return window.clearInterval(interval)
       }
 
-      currentTick++
+      state.currentTick++
     }
 
-    const interval = window.setInterval(schedule, tickMs)
-
-    schedule()
-
-    return () => {
+    const dispose = () => {
       this.synthesizer.allSoundOff()
 
       return window.clearInterval(interval)
+    }
+
+    const getCurrentState = () => state
+
+    updateState(initialMusicFile)
+    schedule()
+
+    const interval = window.setInterval(schedule, state.tickMs)
+
+    return {
+      dispose,
+      getCurrentState,
+      updateState,
     }
   }
 }
