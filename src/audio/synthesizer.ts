@@ -1,11 +1,7 @@
 import { SynthesizerError } from '../common/error'
 import { amountToFreq } from '../common/frequency'
 import { getPitchesBetween } from '../common/pitch'
-import {
-  InstrumentCollection,
-  InstrumentParams,
-  InstrumentState,
-} from '../types/instrument'
+import { InstrumentParams, InstrumentState } from '../types/instrument'
 import { Pitch } from '../types/pitch'
 
 export class PitchNode {
@@ -129,11 +125,11 @@ export class PitchNode {
 }
 
 export class Synthesizer {
-  private collection: InstrumentCollection
+  private collection: Map<string, InstrumentState>
   private processingPitchNodes: PitchNode[]
 
   constructor(private ctx: AudioContext) {
-    this.collection = {}
+    this.collection = new Map()
     this.processingPitchNodes = []
   }
 
@@ -152,7 +148,7 @@ export class Synthesizer {
     const paramsFetcher = await fetch(`${baseUrl}/params.json`)
     const params: InstrumentParams = await paramsFetcher.json()
 
-    this.collection[instrument] = {
+    const state: InstrumentState = {
       params,
       buffers: {},
     }
@@ -162,12 +158,14 @@ export class Synthesizer {
         .then(response => response.arrayBuffer())
         .then(arrayBuffer => this.ctx.decodeAudioData(arrayBuffer))
 
-      this.collection[instrument].buffers[pitch] = audioBuffer
+      state.buffers[pitch] = audioBuffer
     }
+
+    this.collection.set(instrument, state)
   }
 
   getInstruments() {
-    return Object.keys(this.collection)
+    return Array.from(this.collection.keys())
   }
 
   resolveInstrumentState(instrument: string | undefined) {
@@ -177,13 +175,18 @@ export class Synthesizer {
       throw new SynthesizerError('no available instruments')
     }
 
-    const inst = instrument === undefined ? instruments[0] : instrument
+    const inst =
+      instrument !== undefined && instrument in instruments
+        ? instrument
+        : instruments[0]
 
-    if (inst in this.collection) {
-      return this.collection[inst]
+    const state = this.collection.get(inst)
+
+    if (state === undefined) {
+      throw new SynthesizerError(`instrument '${inst}' does not exist`)
     }
 
-    throw new SynthesizerError(`instrument '${inst}' does not exist`)
+    return state
   }
 
   soundOn(

@@ -1,9 +1,5 @@
 import { Pitch } from './pitch'
 
-export interface InstrumentCollection {
-  [instrument: string]: InstrumentState
-}
-
 export interface InstrumentState {
   params: InstrumentParams
   buffers: {
